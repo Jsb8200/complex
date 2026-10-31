@@ -95,6 +95,17 @@ show_open_positions = st.sidebar.toggle("Open Positions", True)
 show_split = st.sidebar.toggle("Split / other", False)
 st.sidebar.caption("Sweeps and blocks use Consolidation Type. Open positions use Is Opening Position.")
 
+# Aggressor-side filter: ask-side prints are generally buyer-initiated;
+# bid-side prints are generally seller-initiated. Midpoint/other is not directional.
+st.sidebar.markdown("---")
+st.sidebar.subheader("📈 Bought / Sold")
+side_filter = st.sidebar.multiselect(
+    "Initiator side",
+    ["Buyer initiated (Ask)", "Seller initiated (Bid)", "Midpoint / Other"],
+    default=["Buyer initiated (Ask)", "Seller initiated (Bid)", "Midpoint / Other"]
+)
+st.sidebar.caption("Ask-side = buyer initiated; bid-side = seller initiated. This is an execution-side inference, not proof of opening/closing intent.")
+
 # ----- Filtering -----
 f = df.copy()
 if ticker != "All" and "Ticker" in f: f = f[f["Ticker"].astype(str) == ticker]
@@ -102,6 +113,15 @@ if pinpoint_enabled and pinpoint_price is not None and "Reference Price" in f:
     ref = pd.to_numeric(f["Reference Price"], errors="coerce")
     f = f[ref.between(pinpoint_price-pinpoint_tolerance, pinpoint_price+pinpoint_tolerance)]
 if calls_puts and "Contract Type" in f: f = f[f["Contract Type"].isin(calls_puts)]
+
+if "Side Code" in f:
+    side = f["Side Code"].fillna("").astype(str).str.upper()
+    side_labels = pd.Series("Midpoint / Other", index=f.index)
+    side_labels.loc[side.isin(["A", "AA"])] = "Buyer initiated (Ask)"
+    side_labels.loc[side.isin(["B", "BB"])] = "Seller initiated (Bid)"
+    if side_filter:
+        f = f[side_labels.loc[f.index].isin(side_filter)]
+
 if selected_trade_types and "Trade Type" in f: f = f[f["Trade Type"].isin(selected_trade_types)]
 if exp_range and isinstance(exp_range, (tuple,list)) and len(exp_range)==2 and "Expiration Date" in f:
     start, end = exp_range
@@ -206,6 +226,12 @@ cols = [c for c in ["Trade Time","Ticker","Expiration Date","Days Until Expirati
                      "Contract Type","Reference Price","Trade Type","Order Type Bucket","Consolidation Type",
                      "Side Code","Premium Price","Volume","Open Interest","Is Opening Position",
                      "Is Golden Sweep"] if c in f.columns]
+if "Side Code" in display_df.columns:
+    display_df["Initiator"] = display_df["Side Code"].map(
+        {"A":"Buyer initiated (Ask)", "AA":"Buyer initiated (Ask)",
+         "B":"Seller initiated (Bid)", "BB":"Seller initiated (Bid)",
+         "M":"Midpoint / Other"}
+    ).fillna("Midpoint / Other")
 display_df = f[cols].sort_values("Premium Price", ascending=False).rename(columns={"Reference Price":"🎯 Pinpoint Price"})
 st.dataframe(display_df, use_container_width=True, height=450)
 
