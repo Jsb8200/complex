@@ -226,13 +226,13 @@ cols = [c for c in ["Trade Time","Ticker","Expiration Date","Days Until Expirati
                      "Contract Type","Reference Price","Trade Type","Order Type Bucket","Consolidation Type",
                      "Side Code","Premium Price","Volume","Open Interest","Is Opening Position",
                      "Is Golden Sweep"] if c in f.columns]
+display_df = f[cols].sort_values("Premium Price", ascending=False).rename(columns={"Reference Price":"🎯 Pinpoint Price"})
 if "Side Code" in display_df.columns:
     display_df["Initiator"] = display_df["Side Code"].map(
         {"A":"Buyer initiated (Ask)", "AA":"Buyer initiated (Ask)",
          "B":"Seller initiated (Bid)", "BB":"Seller initiated (Bid)",
          "M":"Midpoint / Other"}
     ).fillna("Midpoint / Other")
-display_df = f[cols].sort_values("Premium Price", ascending=False).rename(columns={"Reference Price":"🎯 Pinpoint Price"})
 st.dataframe(display_df, use_container_width=True, height=450)
 
 csv = f.to_csv(index=False).encode("utf-8")
